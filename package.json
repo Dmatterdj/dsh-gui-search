@@ -49,13 +49,13 @@
   "publishConfig": {
     "access": "public"
   },
-  "author": "dengjie",
+  "author": "Dmatterdj",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dengjie/dsh-gui-search.git"
+    "url": "https://github.com/Dmatterdj/dsh-gui-search.git"
   },
-  "homepage": "https://github.com/dengjie/dsh-gui-search#readme",
+  "homepage": "https://github.com/Dmatterdj/dsh-gui-search#readme",
   "bugs": {
-    "url": "https://github.com/dengjie/dsh-gui-search/issues"
+    "url": "https://github.com/Dmatterdj/dsh-gui-search/issues"
   }
 }
