@@ -1,0 +1,4 @@
+{
+  "title": "GUI Session Content Search",
+  "description": "Makes the sidebar search box match session message content, not just titles, and jumps to the exact matching message."
+}

@@ -1,0 +1,23 @@
+# dsh-gui-search bundle patch
+#
+# This bundle owns no configuration rows of its own. It inserts one row that
+# loads the plugin.
+#
+# What it does
+# ------------
+# The stock sidebar search box only matches Session *titles*. This plugin wraps
+# the mounted Session Query service's `searchSessions` method with a literal
+# substring scan over `user/message` and `assistant/message` text, so the same
+# search box also finds content — in every language, including 1-character CJK
+# queries, which the built-in SQLite FTS5 `unicode61` tokenizer cannot match
+# (it indexes a run of Chinese characters as ONE token).
+#
+# Everything else on the service (exact reads, titles, traces, filters) is left
+# untouched, so no other feature changes behavior.
+- insert:
+    - id: gui-search
+      name: 'dsh-gui-search'
+      config:
+        # Verbose logging to $DSH_HOME/gui-search.log. Off by default; it never
+        # affects search behavior.
+        debug: false

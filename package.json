@@ -1,0 +1,61 @@
+{
+  "name": "dsh-gui-search",
+  "version": "1.0.0",
+  "private": false,
+  "description": "GUI session content search for DeepSeek Harness: search inside session messages from the sidebar search box (not just titles), then jump to and highlight the exact matching message.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller"
+      ],
+      "platform": "web"
+    }
+  },
+  "engines": {
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "session-search",
+    "gui-search",
+    "full-text",
+    "cjk",
+    "chinese"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "dengjie",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dengjie/dsh-gui-search.git"
+  },
+  "homepage": "https://github.com/dengjie/dsh-gui-search#readme",
+  "bugs": {
+    "url": "https://github.com/dengjie/dsh-gui-search/issues"
+  }
+}
