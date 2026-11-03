@@ -1,63 +1,55 @@
 # dsh-gui-search
 
-Search **inside** your DeepSeek Harness sessions from the sidebar search box — and jump straight to the message that matched.
+在 DeepSeek Harness 侧边栏搜索框里搜索会话**正文**，而不只是标题，并且点击结果能直接跳到命中的那条消息。
 
-The stock sidebar search box only matches session **titles**. This plugin makes the same box search session **content**, in any language, and then scrolls to and highlights the exact matching message.
+<p align="center">
+  <img src="docs/screenshot.png" width="340" alt="在侧边栏搜索会话正文">
+</p>
 
-## What it does
+官方侧边栏的搜索框只匹配会话标题。这个插件让同一个搜索框能搜正文内容，中文、日文、韩文都支持，单个汉字也能搜，点开结果会滚动到命中位置并高亮。
 
-| | Stock | With this plugin |
+## 与原版对比
+
+| 能力 | 官方 | 本插件 |
 |---|---|---|
-| Matches session titles | ✅ | ✅ |
-| Matches message content | ❌ | ✅ |
-| Chinese / Japanese / Korean substring | ❌ | ✅ |
-| 1–2 character queries | ❌ | ✅ |
-| Jumps to the matched message | ❌ | ✅ |
-| Highlights the match | ❌ | ✅ |
+| 匹配会话标题 | 支持 | 支持 |
+| 匹配消息正文 | 不支持 | **支持** |
+| 中日韩文字子串 | 不支持 | **支持** |
+| 一两个字的短词 | 不支持 | **支持** |
+| 跳到命中消息 | 不支持 | **支持** |
+| 高亮命中处 | 不支持 | **支持** |
 
-## Why the built-in content index cannot find Chinese
+## 为什么官方索引搜不到中文
 
-DSH ships an optional SQLite FTS5 index (`@deepseek-ai/dsh-session-query-sqlite`). Its virtual tables are created with:
+DSH 自带一个可选的 SQLite FTS5 索引，建表语句是：
 
 ```sql
 CREATE VIRTUAL TABLE persisted_docs USING fts5(..., tokenize = 'unicode61')
 ```
 
-`unicode61` does not segment CJK. A run of consecutive Chinese characters becomes **one token**, and the caller wraps the query as a single quoted FTS5 phrase. So searching `搜索` never matches a message containing `全文搜索` — the index holds the whole run as one token and the query asks for a different one.
+`unicode61` 不切分中日韩文字。**一串连续汉字会被当成一个 token**，而查询又被整体包成一个 FTS5 短语。所以搜 `搜索` 永远匹配不到包含 `全文搜索` 的消息——索引里存的是整串，查询要的是另一串。
 
-This was measured, not assumed. On a real index:
+这是实测结果，不是推测：
 
-| query | FTS5 `unicode61` | literal substring |
+| 查询词 | FTS5 `unicode61` | 本插件字面子串 |
 |---|---|---|
-| `zstd` | 1 hit | 1 hit |
-| `指纹` | **0 hits** | 1 hit |
-| `插件` | **0 hits** | 1 hit |
-| `插件冲突` | **0 hits** | 1 hit |
-| `帧` (single char) | **0 hits** | 1 hit |
+| `zstd` | 1 命中 | 1 命中 |
+| `指纹` | **0 命中** | 1 命中 |
+| `插件` | **0 命中** | 1 命中 |
+| `插件冲突` | **0 命中** | 1 命中 |
+| `帧`（单字） | **0 命中** | 1 命中 |
 
-This plugin scans literal substrings instead, so every one of those queries works.
+本插件改为字面子串扫描，上面每一条都能搜到。
 
-## How it works
+## 安装
 
-Two halves:
-
-**Host half** (`index.js`) replaces exactly one method, `sessionQuery.searchSessions`. Documents are read through the inherited `sessionQuery.filterEvents()`, so authorization, live-vs-persisted preference and text extraction stay in core code. Titles, exact reads, traces and filters are untouched — nothing else on the service changes behavior.
-
-**Client half** (`lib/client.js`) makes the jump work. The stock result row carries only a session id, so selecting a result opens the session but never navigates to the matching message. This half listens for the result-row click, remembers the query, then:
-
-1. asks the host which `seq` matched (`GET /api/gui-search/locate`);
-2. pages older history in until that `seq` enters the loaded window;
-3. resolves the DOM row, scrolls it clear of the composer, flashes it and highlights every occurrence.
-
-A freshly opened session auto-scrolls itself to the bottom, which undoes the first scroll attempt. The jump retries until the row stays put inside a safe band above the composer, so it wins that race deterministically.
-
-## Install
+插件尚未发布到 npm，请直接从 GitHub 安装：
 
 ```bash
-dsh plugin add dsh-gui-search
+dsh plugin add github:Dmatterdj/dsh-gui-search
 ```
 
-Or add it to your profile's bundle list:
+或者手动加进配置档的 bundle 列表：
 
 ```yaml
 # cordis.patch.yml
@@ -68,94 +60,65 @@ Or add it to your profile's bundle list:
         debug: false
 ```
 
-## Configuration
-
-| key | type | default | meaning |
-|---|---|---|---|
-| `debug` | boolean | `false` | Append matching/activation logs to `$DSH_HOME/gui-search.log`. Never changes search behavior. |
-
-## Routes
-
-One read-only route, fenced to same-origin loopback callers:
-
-| route | purpose |
-|---|---|
-| `GET /api/gui-search/health` | `{ ok, name, sessions, installed }` — confirms the patch is live and how many sessions are cached |
-| `GET /api/gui-search/locate?session=<id>&q=<query>` | `{ ok, seq, time, type, snippet, count }` — the best matching message position inside one session |
-
-`locate` returns conversation text in `snippet`, which is why it is fenced: the `Host` header must be loopback, `Sec-Fetch-Site: cross-site` is rejected, and a present `Origin` must equal the request `Host`.
-
-## Behavior notes
-
-- **Terms are ANDed.** `插件 冲突` requires both substrings. Whitespace separates terms.
-- **Case-insensitive**, and works on any script, including single characters.
-- **Results are ranked** by total occurrence count, then most recent, then newest session.
-- **Documents are cached per session** and invalidated when the session advances. A background warm-up populates the cache shortly after startup so the first query is already fast.
-- **Empty queries and title-only callers** fall through to the original implementation unchanged.
-- **No tools are registered.** This is deliberate: registering a tool like `session_search` collides with `@deepseek-ai/dsh-tool-session-query` and disables the built-in session tools. This plugin adds zero tools, so it cannot conflict with any other plugin.
-
-## Compatibility
-
-- Requires DSH `>=0.2.1-rc.2 <0.3.0`.
-- Tested on client `0.2.1-rc.5` (host protocol 4).
-- Zero runtime dependencies; no build step.
-- Does not modify `app.asar` and does not read session files directly.
-
-## Limitations
-
-- The exact-position jump relies on an internal chat snapshot. On a build that does not expose it, the plugin falls back to locating the first text node containing the query, which can select the wrong row when the same phrase repeats inside one session. Search results themselves are unaffected.
-- Session-level filters (`sessionFilters`) are delegated to the original implementation rather than reimplemented, so those requests keep stock title-only semantics.
-- Only `user/message` and `assistant/message` are indexed; tool output and reasoning are not.
-
-## License
-
-MIT
-
----
-
-# 中文说明
-
-在侧边栏搜索框里搜索会话**正文内容**，而不只是会话**标题**，并且能直接跳转定位到命中的那一条消息。
-
-## 为什么内置的全文索引搜不到中文
-
-DSH 自带的 SQLite FTS5 索引建表时用的是 `tokenize = 'unicode61'`。这个分词器不切分中日韩文字：**一串连续汉字会被当成一个 token**，而查询又被整体包成一个 FTS5 短语。所以搜 `搜索`，永远匹配不到包含 `全文搜索` 的消息。
-
-这是实测结果，不是推测：
-
-| 查询 | FTS5 `unicode61` | 字面子串 |
-|---|---|---|
-| `zstd` | 1 命中 | 1 命中 |
-| `指纹` | **0 命中** | 1 命中 |
-| `插件` | **0 命中** | 1 命中 |
-| `插件冲突` | **0 命中** | 1 命中 |
-| `帧`（单字） | **0 命中** | 1 命中 |
-
-本插件改为字面子串扫描，上面每一条都能搜到。
-
-## 两部分组成
-
-**Host 半部分**只替换 `sessionQuery.searchSessions` 这一个方法。文档仍然通过继承来的 `sessionQuery.filterEvents()` 读取，所以授权、活跃/持久偏好、正文提取全部留在内核代码里。标题、精确读取、trace、过滤器都保持原样。
-
-**Client 半部分**负责定位跳转。官方搜索结果行只带会话 ID，不带消息位置，所以点结果只会打开会话、不会跳到命中处。这部分接住结果行的点击，记住查询词，然后：
-
-1. 向 Host 询问命中的 `seq`；
-2. 向前翻页直到该 `seq` 进入已加载窗口；
-3. 找到对应的 DOM 行，滚动到不被输入框遮挡的位置，闪烁并高亮全部命中。
-
-新打开的会话会自动滚到底部，会覆盖掉第一次滚动。跳转会持续重试，直到该行稳定停在输入框上方的安全区内。
-
-## 安装
+本地开发时可以改用链接安装，改代码立即生效：
 
 ```bash
-dsh plugin add dsh-gui-search
+dsh plugin add link:/你的路径/dsh-gui-search
 ```
 
-## 设计取舍
+## 使用
 
-- **不注册任何工具。** 这是刻意的：注册 `session_search` 这类工具会和 `@deepseek-ai/dsh-tool-session-query` 撞名，导致内置会话工具全部失效。本插件零工具，因此不会与任何插件冲突。
-- **只替换一个方法**，不做整体截胡，上游改动时不易崩。
-- **零运行时依赖，无构建步骤。**
+在侧边栏搜索框直接输入即可，用法和原版一样，只是多了正文匹配。
+
+- **多个词是「且」的关系**：`插件 冲突` 要求两个子串都出现。
+- **不区分大小写**，任何语言都行，单字也支持。
+- **结果排序**：先按总出现次数，再按最近时间，最后按会话新旧。
+- 搜索空词、或只按标题过滤的请求，原样交回官方实现处理。
+
+## 工作原理
+
+插件分成两半。
+
+**Host 半部分**（`index.js`）只替换一个方法：`sessionQuery.searchSessions`。文档仍然通过继承来的 `sessionQuery.filterEvents()` 读取，所以鉴权、活跃/持久偏好、正文提取都留在内核代码里。标题搜索、精确读取、trace、过滤器全部保持原样。
+
+**Client 半部分**（`lib/client.js`）负责跳转定位。官方结果行只带会话 ID，不带消息位置，所以点结果只会打开会话、不会跳到命中处。这部分接住结果行的点击，记住查询词，然后：
+
+1. 向 Host 询问命中的 `seq`；
+2. 向前翻页，直到该 `seq` 进入已加载窗口；
+3. 找到对应的 DOM 行，滚动到不被输入框遮挡的位置，闪烁并高亮全部命中。
+
+新打开的会话会自动滚到底部，会把第一次滚动覆盖掉。跳转会持续重试，直到该行稳定停在输入框上方的安全区内，从而稳定赢得这个竞态。
+
+## 配置
+
+| 键 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `debug` | boolean | `false` | 把匹配和激活日志追加到 `$DSH_HOME/gui-search.log`，不影响搜索行为。 |
+
+## 接口
+
+只有一个只读接口，且限制为同源本机调用：
+
+| 接口 | 用途 |
+|---|---|
+| `GET /api/gui-search/health` | 返回 `{ ok, name, sessions, installed }`，确认补丁已生效、缓存了多少会话 |
+| `GET /api/gui-search/locate?session=<id>&q=<query>` | 返回 `{ ok, seq, time, type, snippet, count }`，某会话内最匹配的消息位置 |
+
+`locate` 会在 `snippet` 里返回对话原文，所以设了围栏：`Host` 头必须是本机回环地址，带 `Sec-Fetch-Site: cross-site` 的请求直接拒绝，有 `Origin` 时必须与请求的 `Host` 一致。
+
+## 兼容性
+
+- 要求 DSH `>=0.2.1-rc.2 <0.3.0`。
+- 在客户端 `0.2.1-rc.5`（Host 协议 4）上测试通过。
+- 零运行时依赖，无构建步骤。
+- 不修改 `app.asar`，不直接读取会话文件。
+
+## 已知限制
+
+- **不注册任何工具**，这是刻意的。注册 `session_search` 这类工具会和 `@deepseek-ai/dsh-tool-session-query` 撞名，导致内置会话工具失效。本插件零工具，因此不与任何插件冲突。
+- 精确跳转依赖内部的对话快照。如果某个版本没有暴露它，会退回到「找第一个包含查询词的文本节点」，当同一段话在一个会话里重复出现时可能选错行。搜索结果本身不受影响。
+- 会话级筛选（`sessionFilters`）交回原实现处理，因此这类请求保持官方的「只搜标题」语义。
+- 只索引 `user/message` 和 `assistant/message`，不索引工具输出和思考过程。
 
 ## 许可
 
