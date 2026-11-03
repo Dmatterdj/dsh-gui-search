@@ -2,6 +2,47 @@
 
 在 DeepSeek Harness 侧边栏搜索框里搜索会话**正文**，而不只是标题，并且点击结果能直接跳到命中的那条消息。
 
+## 一键安装
+
+**方式一：界面安装（推荐，桌面版用户）**
+
+打开 DSH，点左侧 **插件 → 添加插件**，把下面这个地址粘进去：
+
+```text
+https://github.com/Dmatterdj/dsh-gui-search
+```
+
+**方式二：命令行安装**
+
+```bash
+dsh plugin add github:Dmatterdj/dsh-gui-search
+```
+
+装完**重启 DSH** 生效。
+
+> 命令行方式需要机器上有 `dsh` 命令。用桌面版安装包装的 DSH 默认不带这个命令，请用方式一。
+
+### 复制给 AI 助手
+
+把下面这段发给 Claude Code、Codex、Cursor 等任意能执行命令的助手，它会自己判断该走哪条路：
+
+```text
+帮我安装 DeepSeek Harness 插件 dsh-gui-search。
+
+先检查机器上有没有 dsh 命令：
+
+- 如果有，执行：dsh plugin add github:Dmatterdj/dsh-gui-search
+- 如果没有（桌面版安装包不带这个命令），就告诉我：
+  在 DSH 界面点「插件 → 添加插件」，填入
+  https://github.com/Dmatterdj/dsh-gui-search
+
+这个插件让 DSH 侧边栏搜索框能搜会话正文内容（支持中文和单字），
+点击搜索结果可以跳转到命中的那条消息。
+
+不管走哪条路，装完都要提醒我重启 DSH。
+项目地址：https://github.com/Dmatterdj/dsh-gui-search
+```
+
 <p align="center">
   <img src="docs/screenshot.png" width="340" alt="在侧边栏搜索会话正文">
 </p>
@@ -41,15 +82,15 @@ CREATE VIRTUAL TABLE persisted_docs USING fts5(..., tokenize = 'unicode61')
 
 本插件改为字面子串扫描，上面每一条都能搜到。
 
-## 安装
+## 其他安装方式
 
-插件尚未发布到 npm，请直接从 GitHub 安装：
+本地开发时用链接安装，改代码立即生效、不用重装：
 
 ```bash
-dsh plugin add github:Dmatterdj/dsh-gui-search
+dsh plugin add /你的路径/dsh-gui-search
 ```
 
-或者手动加进配置档的 bundle 列表：
+手动加进配置档的 bundle 列表：
 
 ```yaml
 # cordis.patch.yml
@@ -58,12 +99,6 @@ dsh plugin add github:Dmatterdj/dsh-gui-search
       name: 'dsh-gui-search'
       config:
         debug: false
-```
-
-本地开发时可以改用链接安装，改代码立即生效：
-
-```bash
-dsh plugin add link:/你的路径/dsh-gui-search
 ```
 
 ## 使用
